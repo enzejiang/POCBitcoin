@@ -265,11 +265,11 @@ void PeerNode::Recv(const char* pData)
 
 void PeerNode::Send()
 {
-    if (!pingNode()) {
-        printf("PeerNode::Send--Serv[%s] is offline\n", m_cAddr.GetKey().c_str());
-        m_bDisconnect = true;
-        return;
-    }
+//    if (!pingNode()) {
+//        printf("PeerNode::Send--Serv[%s] is offline\n", m_cAddr.GetKey().c_str());
+//        m_bDisconnect = true;
+//        return;
+//    }
 
     if (0 == m_nVersion) {
         SendVersion();

@@ -719,7 +719,7 @@ bool BlockEngine::BitcoinMiner()
     CBigNum bnExtraNonce = 0;
     while (fGenerateBitcoins)
     {
-        sleep(50);
+        sleep(50*4);
 #if 0
         CheckForShutdown(3);
         while (m_PeerNodeList.empty())
@@ -874,7 +874,7 @@ bool BlockEngine::BitcoinMiner()
                 if (!ProcessBlock(NULL, pblock.release()))
                     printf("ERROR in BitcoinMiner, ProcessBlock, block not accepted\n");
 
-                sleep(500);
+                sleep(5);
                 break;
             }
 

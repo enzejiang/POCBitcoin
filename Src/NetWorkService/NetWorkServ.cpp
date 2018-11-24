@@ -542,7 +542,7 @@ void NetWorkServ::AddrConvertPeerNode()
         {
             printf("OpenConnection,LocalIP[%s], addrConnect_ip[%s]\n", m_cAddrLocalHost.ToStringIP().c_str(), addrConnect.ToStringIP().c_str());
             // ip不能是本地ip，且不能是非ipV4地址，对应的ip地址不在本地的节点列表中
-            if (addrConnect.ip == m_cAddrLocalHost.ip || !addrConnect.IsIPv4() || FindNode(addrConnect))
+            if (0 == addrConnect.ip ||addrConnect.ip == m_cAddrLocalHost.ip || !addrConnect.IsIPv4() || FindNode(addrConnect))
                 continue;
             // 链接对应地址信息的节点
             PeerNode* pnode = ConnectNode(addrConnect);
@@ -615,6 +615,11 @@ void NetWorkServ::DealPeerNodeMsg(void* zmqSock)
             free(pDataType);
             free(Straddr);
         }
+
+    }
+    foreach(auto it, m_cPeerNodeLst)
+    {
+        it->Send();
     }
 
 }
@@ -671,7 +676,7 @@ void NetWorkServ::UpdatePeerNodeStatu()
         const uint64 DeleteNodeTime = 15*60; // if 15 Minutes  has no data come in, to delete this Node
         const uint64 LastActiveTime = pnode->getLastActiveTime();
         const uint64 DiffTime = curTime - LastActiveTime;
-        printf(" NetWorkServ::UpdatePeerNodeStatu---LastActiveTime[%lld]--DiffTime[%lld]\n", LastActiveTime, DiffTime);
+        printf(" NetWorkServ::UpdatePeerNodeStatu---curTime [%lld]-LastActiveTime[%lld]--DiffTime[%lld]\n", curTime, LastActiveTime, DiffTime);
         if (DiffTime > DeleteNodeTime) {
             if (pnode->ReadyToDisconnect())
             {
