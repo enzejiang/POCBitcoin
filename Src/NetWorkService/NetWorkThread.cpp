@@ -179,7 +179,7 @@ void NetWorkServ::AddrManagerThread()
     } 
     
     s_sendmore(server, "");
-    s_send(server, "getAddr");
+    s_send(server, "getAddr", strlen("getAddr"));
     printf("star recv from, EndPoint[%s]\n", servEndPoint.c_str());
 
     struct sockaddr_in selfAddr;
@@ -211,15 +211,15 @@ void NetWorkServ::AddrManagerThread()
     
         if (items[0].revents & ZMQ_POLLIN) {
             printf("start recv from emp\n");
-            char* emp = s_recv(server);
+            size_t len = 0;
+            char* emp = s_recv(server, len);
             free(emp);
             printf("Recv Data start\n");
-            char* pData = s_recv(server);
+            char* pData = s_recv(server, len);
             printf("Recv Data End\n");
             
-
             Enze::ServMsg cMsg;
-            cMsg.ParsePartialFromString(pData);
+            cMsg.ParsePartialFromArray(pData, len);
             AddAddress(cMsg);
             free(pData);
         }
@@ -263,21 +263,23 @@ void NetWorkServ::SocketHandler()
         if (0 != retCnt) {
             if (items[0].revents & POLLIN) {
                 CAddress cAddr;
-                char* dataType = sock_recvfrom(m_iSocketFd, cAddr);
+                size_t len = 0;
+                char* dataType = sock_recvfrom(m_iSocketFd, len, cAddr);
                 if (NULL == dataType) {
                     continue;
                 }
                // s_sendmore(server, "");
                 s_sendmore(server, dataType);
                 if (0 == strcmp("ping", dataType) || 0 == strcmp("pong", dataType)) {
-                    s_send(server,(char*)cAddr.ToString().c_str());
+                    s_send(server,(char*)cAddr.ToString().c_str(), cAddr.ToString().length());
                     printf("NetWorkServ::SocketHandler Recv ping\n");
                 }
                 else if (0 == strcmp("data", dataType)){
                     printf("NetWorkServ::SocketHandler Recv Data\n");
                     s_sendmore(server,(char*)cAddr.ToString().c_str());
-                    char* buf = sock_recvfrom(m_iSocketFd, cAddr);
-                    s_send(server, buf);
+                    size_t len = 0;
+                    char* buf = sock_recvfrom(m_iSocketFd, len, cAddr);
+                    s_send(server, buf, len);
                     free(buf);
                 }
                 else {

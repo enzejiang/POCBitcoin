@@ -69,7 +69,7 @@ public:
     bool repPong();
     void AddRecvMessage(PB_MessageData* pRecvData);
     bool ProcessMsg();
-    void Recv(const char* pData);
+    void Recv(const char* pData, size_t len);
     void Send();
    
     inline void setReleaseTime(int64 nTime)

@@ -28,8 +28,8 @@ namespace Enze {
     SOCKET tcp_socket(const CAddress& cServAddr, short selfPort = 8334);
     int sock_send(SOCKET fd, const char* buf);
     char* sock_recv(SOCKET fd);
-    int sock_sendto(SOCKET fd, const char* buf, const CAddress&cAddr);
-    char* sock_recvfrom(SOCKET fd, CAddress& cAddr);
+    int sock_sendto(SOCKET fd, const char* buf, size_t len, const CAddress&cAddr);
+    char* sock_recvfrom(SOCKET fd, size_t&len, CAddress& cAddr);
 }
 
 

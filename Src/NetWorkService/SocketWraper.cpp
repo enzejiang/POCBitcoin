@@ -111,20 +111,19 @@ char* sock_recv(SOCKET fd)
     return buf;
 }
     
-int sock_sendto(SOCKET fd, const char* buf, const CAddress&cAddr)
+int sock_sendto(SOCKET fd, const char* buf, size_t len, const CAddress&cAddr)
 {
     if (-1 ==fd) {
         printf("%s---%d, invalid param\n", __FILE__, __LINE__);
         return -1;
     }
     struct sockaddr_in addr = cAddr.GetSockAddr();
-    int len = strlen(buf);
     printf("sock_sendto, ip[%s] port[%d]\n", inet_ntoa(addr.sin_addr), htons(addr.sin_port));
 
     return sendto(fd, buf, len, 0, (struct sockaddr*)&addr, sizeof(addr));
 }
 
-char* sock_recvfrom(SOCKET fd, CAddress& cAddr)
+char* sock_recvfrom(SOCKET fd, size_t&len, CAddress& cAddr)
 {
     if (-1 ==fd) {
         printf("%s---%d, invalid param\n", __FILE__, __LINE__);
@@ -146,6 +145,7 @@ char* sock_recvfrom(SOCKET fd, CAddress& cAddr)
     }
     
     buf[ret] = '\0';
+    len = ret;
     cAddr = CAddress(addr);
     return buf;
 }

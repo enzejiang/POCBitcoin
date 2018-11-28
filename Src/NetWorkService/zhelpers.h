@@ -46,28 +46,26 @@
 //  Receive 0MQ string from socket and convert into C string
 //  Caller must free returned string. Returns NULL if the context
 //  is being terminated.
+
+#define MAX_BUF_SIZE 1024*2
+
 static char *
-s_recv (void *socket) {
-    char buffer [1024];
-    int size = zmq_recv (socket, buffer, 1023, 0);
+s_recv (void *socket, size_t& len) {
+    char *buffer = (char*) malloc(MAX_BUF_SIZE * sizeof(char));
+    int size = zmq_recv (socket, buffer, MAX_BUF_SIZE - 1, 0);
     if (size == -1)
         return NULL;
     buffer[size] = '\0';
-
-#if (defined (WIN32))
-    return strdup (buffer);
-#else
-    return strndup (buffer, sizeof(buffer) - 1);
-#endif
-
+    len = size;
+    return buffer;
     // remember that the strdup family of functions use malloc/alloc for space for the new string.  It must be manually
     // freed when you are done with it.  Failure to do so will allow a heap attack.
 }
 
 //  Convert C string to 0MQ string and send to socket
 static int
-s_send (void *socket, char *string) {
-    int size = zmq_send (socket, string, strlen (string), 0);
+s_send (void *socket, char *pData, size_t len) {
+    int size = zmq_send (socket, pData, len, 0);
     return size;
 }
 

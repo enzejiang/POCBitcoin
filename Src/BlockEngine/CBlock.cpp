@@ -430,7 +430,8 @@ bool CBlock::ReadFromDisk(unsigned int nFile, unsigned int nBlockPos, bool fRead
     char *buf = (char*)malloc(nSize);
     filein.read(buf, nSize);
     Block cProtoc;
-    cProtoc.ParsePartialFromString(buf);
+ //   cProtoc.ParsePartialFromString(buf);
+    cProtoc.ParsePartialFromArray(buf, nSize);
     UnSeriaBlock(cProtoc, *this);
   //  filein >> *this;
 

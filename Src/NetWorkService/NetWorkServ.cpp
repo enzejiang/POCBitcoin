@@ -464,7 +464,7 @@ vector<unsigned int> NetWorkServ:: getIPCList()
     unsigned char pchIPCMask[4] = { 0xff, 0xff, 0xff, 0x00 };
     unsigned int nIPCMask = *(unsigned int*)pchIPCMask;
     vector<unsigned int> vIPC;
-    vIPC.reserve(m_cMapAddresses.size());
+ //   vIPC.reserve(m_cMapAddresses.size());
     unsigned int nPrev = 0;
     // mapAddress已经进行排序了，默认是生效排序
     foreach(const PAIRTYPE(string, CAddress)& item, m_cMapAddresses)
@@ -475,7 +475,7 @@ vector<unsigned int> NetWorkServ:: getIPCList()
         // Taking advantage of m_cMapAddresses being in sorted order,
         // with IPs of the same class C grouped together.
         unsigned int ipC = addr.ip & nIPCMask;
-        if (ipC != nPrev)
+        if (ipC != nPrev && 0 != ipC)
             vIPC.push_back(nPrev = ipC);
     }
 
@@ -508,11 +508,10 @@ map<unsigned int, vector<CAddress> > NetWorkServ::selectIp(unsigned int ipC)
         
 //           printf("NetWorkServ::OpenConnections----6\n");
         const CAddress& addr = (*mi).second;
-        //if (fIRCOnly && !mapIRCAddresses.count((*mi).first))
-        //    continue;
+        unsigned int ip = addr.ip & nIPCMask;
 
         // 当前时间 - 地址连接最新失败的时间 要大于对应节点重连的间隔时间
-        if (GetTime() - addr.nLastFailed > 12)
+        if (0 != ip && (GetTime() - addr.nLastFailed > 120))
             mapIP[addr.ip].push_back(addr); //同一个地址区段不同地址： 同一个地址的不同端口，所有对应同一个ip会有多个地址
     }
 
@@ -582,12 +581,13 @@ void NetWorkServ::DealPeerNodeMsg(void* zmqSock)
 
     if (0 != retCnt) {
         if (items[0].revents & ZMQ_POLLIN) {
-            char* id = s_recv(zmqSock);
+            size_t len = 0;
+            char* id = s_recv(zmqSock, len);
             printf("DealPeerNode Msg ---id[%s]\n", id);
-            char* pDataType = s_recv(zmqSock);
+            char* pDataType = s_recv(zmqSock, len);
             printf("DealPeerNode Msg ---pDataType[%s]\n", pDataType);
 
-            char* Straddr = s_recv(zmqSock);
+            char* Straddr = s_recv(zmqSock, len);
             printf("DealPeerNode Msg ---addr[%s]\n", Straddr);
             CAddress cAddr(Straddr);
 
@@ -603,8 +603,8 @@ void NetWorkServ::DealPeerNodeMsg(void* zmqSock)
             }
             else if (0 == strcmp("data", pDataType)){
                 printf("DealPeerNode[%s]Recv Data\n", Straddr);
-                char* pData = s_recv(zmqSock);
-                pNode->Recv(pData);
+                char* pData = s_recv(zmqSock, len);
+                pNode->Recv(pData, len);
                 free(pData);
             }
             else {

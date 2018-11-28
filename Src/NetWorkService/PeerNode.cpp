@@ -58,7 +58,7 @@ PeerNode::~PeerNode()
 
 bool PeerNode::pingNode()
 {
-    int ret = sock_sendto(m_peerFd, "ping", m_cAddr);// ping the server 
+    int ret = sock_sendto(m_peerFd, "ping", strlen("ping"),m_cAddr);// ping the server 
     if (0 > ret) {
         printf("%s---%d, Error[%m]\n", __FILE__, __LINE__);
         return false;
@@ -68,7 +68,7 @@ bool PeerNode::pingNode()
 
 bool PeerNode::repPong()
 {
-    int ret = sock_sendto(m_peerFd, "pong", m_cAddr);// ping the server 
+    int ret = sock_sendto(m_peerFd, "pong", strlen("pong"), m_cAddr);// ping the server 
     if (0 > ret) {
         printf("%s---%d, Error[%m]\n", __FILE__, __LINE__);
         return false;
@@ -132,11 +132,11 @@ void PeerNode::SendVersion()
     pVersion->set_nversion(VERSION);
     pVersion->set_nservices(NODE_NETWORK);
     ::SeriaAddress(m_cAddr, *pVersion->mutable_addrme());
-    
-    string strData;
-    cProtoc->SerializePartialToString(&strData);
-    sock_sendto(m_peerFd, "data", m_cAddr);
-    sock_sendto(m_peerFd, strData.c_str(), m_cAddr);
+    char buf[MAX_BUF_SIZE] = {0};
+    int len = cProtoc->ByteSize();
+    cProtoc->SerializePartialToArray(buf, len);
+    sock_sendto(m_peerFd, "data", strlen("data"),m_cAddr);
+    sock_sendto(m_peerFd, buf, len, m_cAddr);
     delete cProtoc;
 
 }
@@ -254,12 +254,12 @@ void PeerNode::AddRecvMessage(PB_MessageData* pRecvData)
     m_RecvLst.push_back(pRecvData);
 }
 
-void PeerNode::Recv(const char* pData)
+void PeerNode::Recv(const char* pData, size_t len)
 {
     if (NULL == pData) return;
     std::lock_guard<std::mutex> guard(m_cRcvMtx);
     PB_MessageData *cProtoc = new PB_MessageData();
-    cProtoc->ParsePartialFromString(pData);
+    cProtoc->ParsePartialFromArray(pData, len);
     m_RecvLst.push_back(cProtoc);
 }
 
@@ -276,14 +276,15 @@ void PeerNode::Send()
         printf("Do not Get peer Node Version Data ,will not send data to it\n");
         return ;
     }
+    char buf[MAX_BUF_SIZE] = {0};
     std::lock_guard<std::mutex> guard(m_cSndMtx);
     while(!m_SendLst.empty()) {
         PB_MessageData* pData = m_SendLst.front();
-        string strData;
-        pData->SerializePartialToString(&strData);
+        int len = pData->ByteSize();
+        pData->SerializePartialToArray(buf, len);
         //s_sendmore(socket, m_EndPoint.c_str());
-        sock_sendto(m_peerFd, "data", m_cAddr);
-        sock_sendto(m_peerFd, strData.c_str(), m_cAddr);
+        sock_sendto(m_peerFd, "data", strlen("data"), m_cAddr);
+        sock_sendto(m_peerFd, buf, len, m_cAddr);
         m_SendLst.pop_front();
         delete pData;
     }
