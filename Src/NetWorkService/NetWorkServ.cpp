@@ -272,6 +272,33 @@ bool NetWorkServ::AddUserProviedAddress()
     return true;
 }
 
+void NetWorkServ::RelayInventory(const CInv& inv)
+{
+    printf("%s---%d\n", __FILE__, __LINE__);
+    // Put on lists to offer to the other nodes
+    foreach(auto it, m_cPeerNodeLst) {
+        PeerNode * pnode =  it;
+        pnode->PushInventory(inv);
+    }
+}
+
+void NetWorkServ::RelayMessage(const CInv& inv, const CTransaction& tx)
+{
+
+      // Expire old relay messages
+      while (!m_vRelayExpiration.empty() && m_vRelayExpiration.front().first < GetTime())
+      {
+          m_mapRelay.erase(m_vRelayExpiration.front().second);
+          m_vRelayExpiration.pop_front();
+      }
+
+      // Save original serialized message so newer versions are preserved
+      m_mapRelay[inv] = tx;
+      m_vRelayExpiration.push_back(make_pair(GetTime() + 15 * 60, inv));
+      // 节点进行库存转播
+      RelayInventory(inv);
+}
+
 // 根据ip在本地存储的节点列表m_cPeerNodeLst中查找对应的节点
 PeerNode* NetWorkServ::FindNode(unsigned int ip)
 {
@@ -280,7 +307,6 @@ PeerNode* NetWorkServ::FindNode(unsigned int ip)
         if (it->getAddr().ip == ip)
             return it;
     }
-
 
     return NULL;
 }
@@ -321,7 +347,7 @@ PeerNode* NetWorkServ::ConnectNode(const CAddress& addrConnect, int64 nTimeout)
 
 	// 对请求的地址进行连接
     // Connect
-    pnode = new PeerNode(addrConnect, m_iSocketFd,false);
+    pnode = new PeerNode(this, addrConnect, m_iSocketFd,false);
     if (pnode->pingNode())
     {
         if (nTimeout != 0)
@@ -330,7 +356,7 @@ PeerNode* NetWorkServ::ConnectNode(const CAddress& addrConnect, int64 nTimeout)
             pnode->AddRef();
 
         pnode->SendVersion();
-        pnode->setLastActiveTime(GetTime());
+       // pnode->setLastActiveTime(GetTime());
         m_cPeerNodeLst.push_back(pnode);
 
         m_cMapAddresses[addrConnect.GetKey()].nLastFailed = 0;

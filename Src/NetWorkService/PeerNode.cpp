@@ -29,14 +29,15 @@
 using namespace std;
 using namespace Enze;
 
-PeerNode::PeerNode(const CAddress& addrIn, int socketFd, bool fInboundIn)
+PeerNode::PeerNode(NetWorkServ*pNWServ,const CAddress& addrIn, int socketFd, bool fInboundIn)
 : m_bInbound(fInboundIn),
   m_cAddr(addrIn),
   m_peerFd(socketFd),
   m_SendLst(),
   m_RecvLst(),
   m_cSndMtx(),
-  m_cRcvMtx()
+  m_cRcvMtx(),
+  m_pNetWorkServ(pNWServ)
 {
 
 }
@@ -80,7 +81,7 @@ void PeerNode::Disconnect()
 {
     printf("disconnecting node %s\n",  m_cAddr.ToString().c_str());
 
-    map<string, CAddress>& mapAddresses = Enze::NetWorkServ::getInstance()->getMapAddr();
+    map<string, CAddress>& mapAddresses = m_pNetWorkServ->getMapAddr();
     // If outbound and never got version message, mark address as failed
     if (!m_bInbound)
         mapAddresses[m_cAddr.GetKey()].nLastFailed = GetTime();
@@ -90,7 +91,7 @@ void PeerNode::Disconnect()
     // when it goes down, so a node has to stay up to keep its broadcast going.
 
   /*  for (std::map<uint256, CProduct>::iterator mi = mapProducts.begin(); mi != mapProducts.end();)
-        Enze::NetWorkServ::getInstance()->AdvertRemoveSource(this, MSG_PRODUCT, 0, (*(mi++)).second);
+        m_pNetWorkServ->AdvertRemoveSource(this, MSG_PRODUCT, 0, (*(mi++)).second);
     */
 }
 // 准备释放链接
@@ -231,7 +232,7 @@ void PeerNode::AskFor(const CInv& inv)
 {
     // We're using mapAskFor as a priority queue, 优先级队列
     // the key is the earliest time the request can be sent （key对应的是请求最早被发送的时间）
-    int64& nRequestTime = Enze::NetWorkServ::getInstance()->getMapAlreadyAskedFor()[inv];
+    int64& nRequestTime = m_pNetWorkServ->getMapAlreadyAskedFor()[inv];
     printf("askfor %s  %I64d\n", inv.ToString().c_str(), nRequestTime);
 
     // 确保不要时间索引让事情在同一个顺序
@@ -508,11 +509,10 @@ void PeerNode::ProcessGetDataMsg(const Inventory& pbInv)
     {
         printf("error %s---%d\n", __FILE__, __LINE__);
         // Send stream from relay memory
-#if 0
-        map<CInv, CDataStream>::iterator mi = mapRelay.find(inv); // 重新转播的内容
+        const map<CInv, CTransaction>& mapRelay = m_pNetWorkServ->getMapRelay();
+        map<CInv, CTransaction>::const_iterator mi = mapRelay.find(inv); // 重新转播的内容
         if (mi != mapRelay.end())
-            pfrom->PushMessage(inv.GetCommand(), (*mi).second);
-#endif
+            PushMessage(inv.GetCommandType(), (*mi).second);
     }
 
 }
@@ -582,7 +582,7 @@ void PeerNode::ProcessTxMsg(const Transaction& pbTx)
     if (tx.AcceptTransaction(true, &fMissingInputs))
     {
         WalletServ::getInstance()->AddToWalletIfMine(tx, NULL);
-        // RelayMessage(inv, vMsg);// 转播消息 need define the function
+        m_pNetWorkServ->RelayMessage(inv, tx);// 转播消息 need define the function
         NetWorkServ::getInstance()->removeAlreadyAskedFor(inv);
         vWorkQueue.push_back(inv.hash);
 
@@ -592,20 +592,21 @@ void PeerNode::ProcessTxMsg(const Transaction& pbTx)
         {
             printf("error:%s---%d\n", __FILE__, __LINE__);
             uint256 hashPrev = vWorkQueue[i];
-            for (multimap<uint256, CTransaction*>::iterator mi = WalletServ::getInstance()->mapOrphanTransactionsByPrev.lower_bound(hashPrev);
-                 mi != WalletServ::getInstance()->mapOrphanTransactionsByPrev.upper_bound(hashPrev);
+            multimap<uint256, CTransaction*>& mapOrphanTransactionsByPrev = WalletServ::getInstance()->getMapOrphanTransactionsByPrev();
+            for (multimap<uint256, CTransaction*>::iterator mi = mapOrphanTransactionsByPrev.lower_bound(hashPrev);
+                 mi != mapOrphanTransactionsByPrev.upper_bound(hashPrev);
                  ++mi)
             {
-                CTransaction tx = *((*mi).second);
-                CInv inv(MSG_TX, tx.GetHash());
+                CTransaction tx1 = *((*mi).second);
+                CInv inv1(MSG_TX, tx1.GetHash());
 
-                if (tx.AcceptTransaction(true))
+                if (tx1.AcceptTransaction(true))
                 {
-                    printf("   accepted orphan tx %s\n", inv.hash.ToString().substr(0,6).c_str());
-                    WalletServ::getInstance()->AddToWalletIfMine(tx, NULL);
-                //    RelayMessage(inv, vMsg);
-                    NetWorkServ::getInstance()->removeAlreadyAskedFor(inv);
-                    vWorkQueue.push_back(inv.hash);
+                    printf("   accepted orphan tx %s\n", inv1.hash.ToString().substr(0,6).c_str());
+                    WalletServ::getInstance()->AddToWalletIfMine(tx1, NULL);
+                    m_pNetWorkServ->RelayMessage(inv1, tx1);
+                    NetWorkServ::getInstance()->removeAlreadyAskedFor(inv1);
+                    vWorkQueue.push_back(inv1.hash);
                 }
             }
         }
@@ -829,6 +830,16 @@ void PeerNode::SendSelfInv()
     if (!vInventoryToSend.empty())
         SendInv(vInventoryToSend, false);
 
+}
+
+void PeerNode::PushMessage(int cmdType, const CTransaction& tx)
+{
+    if (MSG_TX == cmdType) {
+        SendTx(tx); 
+    }
+    else {
+        printf(" PeerNode::PushMessage %s---%d, cmdType[%d]\n", __FILE__, __LINE__, cmdType);
+    }
 }
 
 void PeerNode::SendGetDataReq()

@@ -32,7 +32,7 @@ namespace Enze
         public:
             static NetWorkServ* getInstance();
             static void Destory();
-        public:
+            
             void initiation();
             bool ConnectSocket(const CAddress& addrConnect, SOCKET& hSocketRet);
             PeerNode* FindNode(unsigned int ip);
@@ -47,35 +47,47 @@ namespace Enze
             void CheckForShutdown(int n);
             void AbandonRequests(/*void (*fn)(void*, CDataStream&), void* param1*/);
             bool AnySubscribed(unsigned int nChannel);
-            map<string, CAddress>& getMapAddr()
-            {
-                return m_cMapAddresses; 
-            }
-            vector<PeerNode*>& getNodeList()
-            {
-                return m_cPeerNodeLst;
-            }
-            
-            const CAddress& getLocakAddr()
-            {
-                return m_cAddrLocalHost;
-            }
-            
-            map<CInv, int64>& getMapAlreadyAskedFor()
-            {
-                return mapAlreadyAskedFor;
-            }
-            
-            inline void removeAlreadyAskedFor(const CInv& inv)
-            {
-                mapAlreadyAskedFor.erase(inv);
-            }
-
             void MessageHandler();
             void SocketHandler();
             void PeerNodeManagerThread();
             void AddrManagerThread();
+            void RelayInventory(const CInv& inv);
+            void RelayMessage(const CInv& inv, const CTransaction& tx);
             
+            inline map<string, CAddress>& getMapAddr()
+            {
+                return m_cMapAddresses; 
+            }
+            
+            inline vector<PeerNode*>& getNodeList()
+            {
+                return m_cPeerNodeLst;
+            }
+            
+            inline bool AlreadyHaveNode()
+            {
+                return !m_cPeerNodeLst.empty();
+            }
+
+            inline const CAddress& getLocakAddr()
+            {
+                return m_cAddrLocalHost;
+            }
+            
+            inline map<CInv, int64>& getMapAlreadyAskedFor()
+            {
+                return m_mapAlreadyAskedFor;
+            }
+            
+            inline void removeAlreadyAskedFor(const CInv& inv)
+            {
+                m_mapAlreadyAskedFor.erase(inv);
+            }
+
+            const map<CInv, CTransaction>& getMapRelay()const
+            {
+                return m_mapRelay;
+            }
         private:
             NetWorkServ();
             ~NetWorkServ();
@@ -108,106 +120,13 @@ namespace Enze
 
             list<ThreadGuard*> m_ThreadList;
             std::mutex m_cAddrMutex;
-            deque<pair<int64, CInv> > vRelayExpiration;
-            map<CInv, int64> mapAlreadyAskedFor;
+            map<CInv, CTransaction> m_mapRelay; // 重新转播的内容
+            deque<pair<int64, CInv> > m_vRelayExpiration;
+            map<CInv, int64> m_mapAlreadyAskedFor;
             void* m_cZmqCtx; 
             string m_strIdentity;
             static NetWorkServ* m_pInstance;
             static pthread_mutex_t m_NWSLock;
-        public:
-            // 转播库存
-            inline void RelayInventory(const CInv& inv)
-            {
-                printf("%s---%d\n", __FILE__, __LINE__);
-                // 将此节点相连的所有节点进行转播此信息
-                // Put on lists to offer to the other nodes
-                foreach(auto it, m_cPeerNodeLst) {
-                    PeerNode * pnode =  it;
-                    pnode->PushInventory(inv);
-                }
-            }
-
-
-            template<typename T>
-            void RelayMessage(const CInv& inv, const T& a)
-            {
-                printf("error %s--%d\n", __FILE__, __LINE__);
-#if 0
-                CDataStream ss(SER_NETWORK);
-                ss.reserve(10000);
-                ss << a;
-                RelayMessage(inv, ss);
-#endif
-            }
-#if 0
-            inline void RelayMessage(const CInv& inv, const CDataStream& ss)
-            {
-                //CRITICAL_BLOCK(cs_mapRelay)
-                {
-                    // Expire old relay messages
-                    while (!vRelayExpiration.empty() && vRelayExpiration.front().first < GetTime())
-                    {
-                        mapRelay.erase(vRelayExpiration.front().second);
-                        vRelayExpiration.pop_front();
-                    }
-
-                    // Save original serialized message so newer versions are preserved
-                    mapRelay[inv] = ss;
-                    vRelayExpiration.push_back(make_pair(GetTime() + 15 * 60, inv));
-                }
-                // 节点进行库存转播
-                RelayInventory(inv);
-            }
-#endif
-            
-
-
-            //
-            // Templates for the publish and subscription system.
-            // The object being published as T& obj needs to have:
-            //   a set<unsigned int> setSources member
-            //   specializations of AdvertInsert and AdvertErase
-            // Currently implemented for CTable and CProduct.
-            //
-
-            template<typename T>
-            void AdvertStartPublish(PeerNode* pfrom, unsigned int nChannel, unsigned int nHops, T& obj)
-            {
-                // Add to sources
-                obj.setSources.insert(pfrom->getAddr().ip);
-
-                if (!AdvertInsert(obj))
-                    return;
-                printf("%s---%d\n", __FILE__, __LINE__);
-                // Relay
-                //foreach(PeerNode* pnode, m_cPeerNodeLst)
-                    //if (pnode != pfrom && (nHops < PUBLISH_HOPS || pnode->IsSubscribed(nChannel)))
-                        //pnode->PushMessage("publish", nChannel, nHops, obj);
-            }
-
-            template<typename T>
-            void AdvertStopPublish(PeerNode* pfrom, unsigned int nChannel, unsigned int nHops, T& obj)
-            {
-                uint256 hash = obj.GetHash();
-                printf("%s---%d\n", __FILE__, __LINE__);
-                //foreach(PeerNode* pnode, m_cPeerNodeLst)
-                //    if (pnode != pfrom && (nHops < PUBLISH_HOPS || pnode->IsSubscribed(nChannel)))
-                //        pnode->PushMessage("pub-cancel", nChannel, nHops, hash);
-
-                AdvertErase(obj);
-            }
-
-            template<typename T>
-            void AdvertRemoveSource(PeerNode* pfrom, unsigned int nChannel, unsigned int nHops, T& obj)
-            {
-                // Remove a source
-                obj.setSources.erase(pfrom->getAddr().ip);
-
-                // If no longer supported by any sources, cancel it
-                if (obj.setSources.empty())
-                    AdvertStopPublish(pfrom, nChannel, nHops, obj);
-            }
-
         
     };
 

@@ -70,7 +70,7 @@ bool NetWorkServ::StartNode()
 
     printf("m_cAddrLocalHost = %s\n", m_cAddrLocalHost.ToString().c_str());
     
-    CAddress& addrIncoming = WalletServ::getInstance()->addrIncoming;
+    CAddress& addrIncoming = WalletServ::getInstance()->getAddrIncoming();
     // Get our external IP address for incoming connections
     if (addrIncoming.ip)
         m_cAddrLocalHost.ip = addrIncoming.ip;
@@ -108,7 +108,7 @@ bool NetWorkServ::StopNode()
 {
     printf("StopNode()\n");
     fShutdown = true;
-    WalletServ::getInstance()->nTransactionsUpdated++;
+    WalletServ::getInstance()->incrTransactionsUpdatedTime();
     int64 nStart = GetTime();
     while (vfThreadRunning[0] || vfThreadRunning[2] || vfThreadRunning[3])
     {

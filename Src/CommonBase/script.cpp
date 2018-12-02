@@ -130,44 +130,42 @@ bool Solver(const CScript& scriptPubKey, uint256 hash, int nHashType, CScript& s
     vector<pair<opcodetype, valtype> > vSolution;
     if (!Solver(scriptPubKey, vSolution))
         return false;
-    map<vector<unsigned char>, CPrivKey>& mapKeys = WalletServ::getInstance()->mapKeys;
-    map<uint160, vector<unsigned char> >& mapPubKeys = WalletServ::getInstance()->mapPubKeys;
+    const map<uint160, vector<unsigned char> >& mapPubKeys = WalletServ::getInstance()->getMapPubKeys();
+    const map<vector<unsigned char>, CPrivKey>& mapKeys = WalletServ::getInstance()->getMapKeys();
     
+    foreach(PAIRTYPE(opcodetype, valtype)& item, vSolution)
     {
-        foreach(PAIRTYPE(opcodetype, valtype)& item, vSolution)
+        if (item.first == OP_PUBKEY)
         {
-            if (item.first == OP_PUBKEY)
+            // Sign
+            const valtype& vchPubKey = item.second;
+            if (!mapKeys.count(vchPubKey))
+                return false;
+            if (hash != 0)
             {
-                // Sign
-                const valtype& vchPubKey = item.second;
-                if (!mapKeys.count(vchPubKey))
+                vector<unsigned char> vchSig;
+                if (!CKey::Sign(mapKeys.at(vchPubKey), hash, vchSig))
                     return false;
-                if (hash != 0)
-                {
-                    vector<unsigned char> vchSig;
-                    if (!CKey::Sign(mapKeys[vchPubKey], hash, vchSig))
-                        return false;
-                    vchSig.push_back((unsigned char)nHashType);
-                    scriptSigRet << vchSig;
-                }
+                vchSig.push_back((unsigned char)nHashType);
+                scriptSigRet << vchSig;
             }
-            else if (item.first == OP_PUBKEYHASH)
+        }
+        else if (item.first == OP_PUBKEYHASH)
+        {
+            // Sign and give pubkey
+            map<uint160, valtype>::const_iterator mi = mapPubKeys.find(uint160(item.second));
+            if (mi == mapPubKeys.end())
+                return false;
+            const vector<unsigned char>& vchPubKey = (*mi).second;
+            if (!mapKeys.count(vchPubKey))
+                return false;
+            if (hash != 0)
             {
-                // Sign and give pubkey
-                map<uint160, valtype>::iterator mi = mapPubKeys.find(uint160(item.second));
-                if (mi == mapPubKeys.end())
+                vector<unsigned char> vchSig;
+                if (!CKey::Sign(mapKeys.at(vchPubKey), hash, vchSig))
                     return false;
-                const vector<unsigned char>& vchPubKey = (*mi).second;
-                if (!mapKeys.count(vchPubKey))
-                    return false;
-                if (hash != 0)
-                {
-                    vector<unsigned char> vchSig;
-                    if (!CKey::Sign(mapKeys[vchPubKey], hash, vchSig))
-                        return false;
-                    vchSig.push_back((unsigned char)nHashType);
-                    scriptSigRet << vchSig << vchPubKey;
-                }
+                vchSig.push_back((unsigned char)nHashType);
+                scriptSigRet << vchSig << vchPubKey;
             }
         }
     }

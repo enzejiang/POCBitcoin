@@ -103,7 +103,7 @@ void TestTxSend::StartTransfer()
 {
     printf("start TestTxSend::StartTransfer\n");
     // Make sure we have enough money
-    int64 nTransactionFee = WalletServ::getInstance()->nTransactionFee; 
+    int64 nTransactionFee = WalletServ::getInstance()->getTransactionFee(); 
     if (nPrice + nTransactionFee > WalletServ::getInstance()->GetBalance())
     {
         error("You don't have enough money");
@@ -173,7 +173,7 @@ void TestTxSend::OnReply2(CDataStream& vRecv)
         // Pay
         if (!Status("Creating transaction..."))
             return;
-        int64 nTransactionFee = WalletServ::getInstance()->nTransactionFee; 
+        int64 nTransactionFee = WalletServ::getInstance()->getTransactionFee(); 
         
         if (nPrice + nTransactionFee > WalletServ::getInstance()->GetBalance())
         {

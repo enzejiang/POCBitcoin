@@ -277,9 +277,8 @@ bool CTxDB::LoadBlockIndex()
     }
 
     pcursor->close();
-   // pcursor->del(0);
     uint256 BestHash;
-    printf("CTxDB::LoadBlockIndex---read best hash\n");
+
     if (!ReadHashBestChain(BestHash))
     {
         if (BlockEngine::getInstance()->getGenesisBlock() == NULL)
@@ -294,7 +293,8 @@ bool CTxDB::LoadBlockIndex()
     {
         BlockEngine::getInstance()->setBestChain(BestHash);
     }
-     printf("CTxDB::LoadBlockIndex---read best hash--end\n");
+    printf("CTxDB::LoadBlockIndex---read best hash [%s]--end\n", BestHash.ToString().c_str());
+  //  printf("CTxDB::LoadBlockIndex---read best hash--end\n");
     if (!mapBlockIndex.count(BestHash))
         return error("CTxDB::LoadBlockIndex() : blockindex for hashBestChain not found\n");
     printf("error %s--%d\n", __FILE__, __LINE__);

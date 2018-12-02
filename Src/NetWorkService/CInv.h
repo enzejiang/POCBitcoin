@@ -75,6 +75,10 @@ public:
         return ppszTypeName[type];
     }
 
+    inline int GetCommandType() const
+    {
+        return type;
+    }
     string ToString() const
     {
         return strprintf("%s %s", GetCommand(), hash.ToString().substr(0,14).c_str());

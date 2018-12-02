@@ -201,7 +201,7 @@ bool CBlock::AddToBlockIndex(unsigned int nFile, unsigned int nBlockPos)
         printf("CBlock::AddToBlockIndex--- serail----8888--222\n");
         BlockEngine::getInstance()->setBestHeight(pindexNew->m_nCurHeight);
         printf("CBlock::AddToBlockIndex--- serail----888-333\n");
-        WalletServ::getInstance()->nTransactionsUpdated++;
+        WalletServ::getInstance()->incrTransactionsUpdatedTime();
         printf("AddToBlockIndex: new best=%s  height=%d\n", hashBestChain.ToString().substr(0,14).c_str(), BlockEngine::getInstance()->getBestHeight());
     }
 

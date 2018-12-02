@@ -99,7 +99,7 @@ bool OnInit(int argc, char* argv[])
 
     }
     sleep(30);
-    printf("mapWallet.size() = %d\n", WalletServ::getInstance()->mapWallet.size());
+    printf("mapWallet.size() = %d\n", WalletServ::getInstance()->getMapWallet().size());
     
     while(1);
     if (argc == 2) {
@@ -133,7 +133,7 @@ void* ThreadRandSendTest(void* parg)
 #endif
 int ThreadRandSendTest(const string & strAddress)
 {
-    printf("ThreadRandSendTest: Bitcoin address '%s' start mapWallet.size() %d \n", strAddress.c_str(), WalletServ::getInstance()->mapWallet.size());
+    printf("ThreadRandSendTest: Bitcoin address '%s' start mapWallet.size() %d \n", strAddress.c_str(), WalletServ::getInstance()->getMapWallet().size());
     uint160 hash160;
     if (!AddressToHash160(strAddress, hash160))
     {
@@ -164,13 +164,13 @@ void SendMoneyByIPAddr(const string& strAddress)
     wtx.m_mapValue["from"] = Enze::NetWorkServ::getInstance()->getLocakAddr().ToString();//addrLocalHost.ToString();
     wtx.m_mapValue["message"] = "Enze's First Tx";
     int64 nValue =  100 * CENT;
-    printf("SendMoneyByIPAddr WalletSize[%d]\n", WalletServ::getInstance()->mapWallet.size());
+    printf("SendMoneyByIPAddr WalletSize[%d]\n", WalletServ::getInstance()->getMapWallet().size());
     TestTxSend* pSend = new TestTxSend(addr, nValue, wtx);
-    
+#if 0 
     map<string, string>& mapAddressBook = WalletServ::getInstance()->mapAddressBook;
     if (!mapAddressBook.count(strAddress))
         Enze::DaoServ::getInstance()->SetAddressBookName(strAddress, "");
-
+#endif 
 
 }
 

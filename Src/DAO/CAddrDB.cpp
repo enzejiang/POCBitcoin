@@ -17,7 +17,6 @@
  */
 #include "DAO/CAddrDB.h"
 #include "NetWorkService/CAddress.h"
-#include "NetWorkService/irc.h"
 #include "NetWorkService/NetWorkServ.h"
 #include "ProtocSrc/Address.pb.h"
 #include "CommonBase/ProtocSerialize.h"

@@ -102,28 +102,26 @@ bool ExtractPubKey(const CScript& scriptPubKey, bool fMineOnly, vector<unsigned 
     if (!Solver(scriptPubKey, vSolution))
         return false;
 
-    map<uint160, vector<unsigned char> >& mapPubKeys = WalletServ::getInstance()->mapPubKeys;
-    map<vector<unsigned char>, CPrivKey>& mapKeys = WalletServ::getInstance()->mapKeys;
+    const map<uint160, vector<unsigned char> >& mapPubKeys = WalletServ::getInstance()->getMapPubKeys();
+    const map<vector<unsigned char>, CPrivKey>& mapKeys = WalletServ::getInstance()->getMapKeys();
+    foreach(PAIRTYPE(opcodetype, valtype)& item, vSolution)
     {
-        foreach(PAIRTYPE(opcodetype, valtype)& item, vSolution)
+        valtype vchPubKey;
+        if (item.first == OP_PUBKEY)
         {
-            valtype vchPubKey;
-            if (item.first == OP_PUBKEY)
-            {
-                vchPubKey = item.second;
-            }
-            else if (item.first == OP_PUBKEYHASH)
-            {
-                map<uint160, valtype>::iterator mi = mapPubKeys.find(uint160(item.second));
-                if (mi == mapPubKeys.end())
-                    continue;
-                vchPubKey = (*mi).second;
-            }
-            if (!fMineOnly || mapKeys.count(vchPubKey))
-            {
-                vchPubKeyRet = vchPubKey;
-                return true;
-            }
+            vchPubKey = item.second;
+        }
+        else if (item.first == OP_PUBKEYHASH)
+        {
+            map<uint160, valtype>::const_iterator mi = mapPubKeys.find(uint160(item.second));
+            if (mi == mapPubKeys.end())
+                continue;
+            vchPubKey = (*mi).second;
+        }
+        if (!fMineOnly || mapKeys.count(vchPubKey))
+        {
+            vchPubKeyRet = vchPubKey;
+            return true;
         }
     }
     return false;

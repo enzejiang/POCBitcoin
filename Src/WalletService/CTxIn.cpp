@@ -24,16 +24,14 @@ using namespace Enze;
 // 判断当前交易是是否对应本节点的交易
 bool CTxIn::IsMine() const
 {
-    map<uint256, CWalletTx>& mapWallet = WalletServ::getInstance()->mapWallet;
+    const map<uint256, CWalletTx>& mapWallet = WalletServ::getInstance()->getMapWallet();
+    map<uint256, CWalletTx>::const_iterator mi = mapWallet.find(m_cPrevOut.m_u256Hash);
+    if (mi != mapWallet.end())
     {
-        map<uint256, CWalletTx>::iterator mi = mapWallet.find(m_cPrevOut.m_u256Hash);
-        if (mi != mapWallet.end())
-        {
-            const CWalletTx& prev = (*mi).second;
-            if (m_cPrevOut.m_nIndex < prev.m_vTxOut.size())
-                if (prev.m_vTxOut[m_cPrevOut.m_nIndex].IsMine())
-                    return true;
-        }
+        const CWalletTx& prev = (*mi).second;
+        if (m_cPrevOut.m_nIndex < prev.m_vTxOut.size())
+            if (prev.m_vTxOut[m_cPrevOut.m_nIndex].IsMine())
+                return true;
     }
     return false;
 }
@@ -41,16 +39,14 @@ bool CTxIn::IsMine() const
 // 获取当前节点对于此笔交易对应的输入金额，如果输入对应的不是当前节点则对应的借方金额为0
 int64 CTxIn::GetDebit() const
 {
-    map<uint256, CWalletTx>& mapWallet = WalletServ::getInstance()->mapWallet;
+    const map<uint256, CWalletTx>& mapWallet = WalletServ::getInstance()->getMapWallet();
+    map<uint256, CWalletTx>::const_iterator mi = mapWallet.find(m_cPrevOut.m_u256Hash);
+    if (mi != mapWallet.end())
     {
-        map<uint256, CWalletTx>::iterator mi = mapWallet.find(m_cPrevOut.m_u256Hash);
-        if (mi != mapWallet.end())
-        {
-            const CWalletTx& prev = (*mi).second;
-            if (m_cPrevOut.m_nIndex < prev.m_vTxOut.size())
-                if (prev.m_vTxOut[m_cPrevOut.m_nIndex].IsMine())
-                    return prev.m_vTxOut[m_cPrevOut.m_nIndex].m_nValue;
-        }
+        const CWalletTx& prev = (*mi).second;
+        if (m_cPrevOut.m_nIndex < prev.m_vTxOut.size())
+            if (prev.m_vTxOut[m_cPrevOut.m_nIndex].IsMine())
+                return prev.m_vTxOut[m_cPrevOut.m_nIndex].m_nValue;
     }
     return 0;
 }

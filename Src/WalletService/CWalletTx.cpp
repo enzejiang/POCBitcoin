@@ -62,45 +62,43 @@ void CWalletTx::AddSupportingTransactions()
             vWorkQueue.push_back(txin.m_cPrevOut.m_u256Hash);
 
         // This critsect is OK because txdb is already open
-        map<uint256, CWalletTx>& mapWallet = WalletServ::getInstance()->mapWallet;
+        const map<uint256, CWalletTx>& mapWallet = WalletServ::getInstance()->getMapWallet();
+        map<uint256, const CMerkleTx*> mapWalletPrev;
+        set<uint256> setAlreadyDone;
+        for (int i = 0; i < vWorkQueue.size(); i++)
         {
-            map<uint256, const CMerkleTx*> mapWalletPrev;
-            set<uint256> setAlreadyDone;
-            for (int i = 0; i < vWorkQueue.size(); i++)
+            uint256 hash = vWorkQueue[i];
+            if (setAlreadyDone.count(hash))
+                continue;
+            setAlreadyDone.insert(hash);
+
+            CMerkleTx tx;
+            if (mapWallet.count(hash))
             {
-                uint256 hash = vWorkQueue[i];
-                if (setAlreadyDone.count(hash))
-                    continue;
-                setAlreadyDone.insert(hash);
-
-                CMerkleTx tx;
-                if (mapWallet.count(hash))
-                {
-                    tx = mapWallet[hash];
-                    foreach(const CMerkleTx& txWalletPrev, mapWallet[hash].m_vPrevTx)
-                        mapWalletPrev[txWalletPrev.GetHash()] = &txWalletPrev;
-                }
-                else if (mapWalletPrev.count(hash))
-                {
-                    tx = *mapWalletPrev[hash];
-                }
-                else if (!fClient && DaoServ::getInstance()->ReadDiskTx(hash, tx))
-                {
-                    ;
-                }
-                else
-                {
-                    printf("ERROR: AddSupportingTransactions() : unsupported transaction\n");
-                    continue;
-                }
-
-                int nDepth = tx.SetMerkleBranch();
-                m_vPrevTx.push_back(tx);
-
-                if (nDepth < COPY_DEPTH)
-                    foreach(const CTxIn& txin, tx.m_vTxIn)
-                        vWorkQueue.push_back(txin.m_cPrevOut.m_u256Hash);
+                tx = mapWallet.at(hash);
+                foreach(const CMerkleTx& txWalletPrev, mapWallet.at(hash).m_vPrevTx)
+                    mapWalletPrev[txWalletPrev.GetHash()] = &txWalletPrev;
             }
+            else if (mapWalletPrev.count(hash))
+            {
+                tx = *mapWalletPrev[hash];
+            }
+            else if (!fClient && DaoServ::getInstance()->ReadDiskTx(hash, tx))
+            {
+                ;
+            }
+            else
+            {
+                printf("ERROR: AddSupportingTransactions() : unsupported transaction\n");
+                continue;
+            }
+
+            int nDepth = tx.SetMerkleBranch();
+            m_vPrevTx.push_back(tx);
+
+            if (nDepth < COPY_DEPTH)
+                foreach(const CTxIn& txin, tx.m_vTxIn)
+                    vWorkQueue.push_back(txin.m_cPrevOut.m_u256Hash);
         }
     }
 
@@ -134,7 +132,7 @@ void CWalletTx::RelayWalletTransaction()
 // 判断当前交易是否能够被接收
 bool CWalletTx::AcceptWalletTransaction(bool fCheckInputs)
 {
-    map<uint256, CTransaction>& mapTransactions = WalletServ::getInstance()->mapTransactions;
+    const map<uint256, CTransaction>& mapTransactions = WalletServ::getInstance()->getMapTransactions();
     foreach(CMerkleTx& tx, m_vPrevTx)
     {
         if (!tx.IsCoinBase())

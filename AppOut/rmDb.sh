@@ -1,2 +1,2 @@
 rm *.dat
-rm -rf database
+rm -rf database *.log

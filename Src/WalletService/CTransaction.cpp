@@ -47,8 +47,8 @@ bool CTransaction::AcceptTransaction(bool fCheckInputs, bool* pfMissingInputs)
 	// 判断当前交易是否我们已经接收到过了
     // Do we already have it?
     uint256 hash = GetHash();
-    map<uint256, CTransaction>& mapTransactions = WalletServ::getInstance()->mapTransactions;
-    map<COutPoint, CInPoint>& mapNextTx = WalletServ::getInstance()->mapNextTx;
+    map<uint256, CTransaction>& mapTransactions = WalletServ::getInstance()->getMapTransactions();
+    map<COutPoint, CInPoint>& mapNextTx = WalletServ::getInstance()->getMapNextTx();
     if (mapTransactions.count(hash)) // 判断内存对象map中是否已经存在
         return false;
     if (fCheckInputs)
@@ -122,8 +122,8 @@ bool CTransaction::AddToMemoryPool()
 {
     // Add to memory pool without checking anything.  Don't call this directly,
     // call AcceptTransaction to properly check the transaction first.
-    map<uint256, CTransaction>& mapTransactions = WalletServ::getInstance()->mapTransactions;
-    map<COutPoint, CInPoint>& mapNextTx = WalletServ::getInstance()->mapNextTx;
+    map<uint256, CTransaction>& mapTransactions = WalletServ::getInstance()->getMapTransactions();
+    map<COutPoint, CInPoint>& mapNextTx = WalletServ::getInstance()->getMapNextTx();
     {
         uint256 hash = GetHash();
         mapTransactions[hash] = *this; // 将当前交易放入到内存对象mapTransactions中
@@ -132,7 +132,7 @@ bool CTransaction::AddToMemoryPool()
             mapNextTx[m_vTxIn[i].m_cPrevOut] = CInPoint(&mapTransactions[hash], i);
 
 		// 记录交易被更新的次数
-        WalletServ::getInstance()->nTransactionsUpdated++;
+        WalletServ::getInstance()->incrTransactionsUpdatedTime();
     }
     return true;
 }
@@ -141,13 +141,13 @@ bool CTransaction::AddToMemoryPool()
 bool CTransaction::RemoveFromMemoryPool()
 {
     // Remove transaction from memory pool
-    map<uint256, CTransaction>& mapTransactions = WalletServ::getInstance()->mapTransactions;
-    map<COutPoint, CInPoint>& mapNextTx = WalletServ::getInstance()->mapNextTx;
+    map<uint256, CTransaction>& mapTransactions = WalletServ::getInstance()->getMapTransactions();
+    map<COutPoint, CInPoint>& mapNextTx = WalletServ::getInstance()->getMapNextTx();
     {
         foreach(const CTxIn& txin, m_vTxIn)
             mapNextTx.erase(txin.m_cPrevOut);
         mapTransactions.erase(GetHash());
-        WalletServ::getInstance()->nTransactionsUpdated++;
+        WalletServ::getInstance()->incrTransactionsUpdatedTime();
     }
     return true;
 }
@@ -195,7 +195,7 @@ bool CTransaction::ConnectInputs(map<uint256, CTxIndex>& mapTestPool, const CDis
     // Take over previous transactions' spent pointers
     if (!IsCoinBase())
     {
-        map<uint256, CTransaction>& mapTransactions = WalletServ::getInstance()->mapTransactions;
+        map<uint256, CTransaction>& mapTransactions = WalletServ::getInstance()->getMapTransactions();
         const int nBestHeight = BlockEngine::getInstance()->getBestHeight();
         CBlockIndex* pindexBest = BlockEngine::getInstance()->getBestIndex();
         int64 nValueIn = 0;
@@ -303,7 +303,7 @@ bool CTransaction::ClientConnectInputs()
 
 	// 占用前一个交易对应的花费标记
     // Take over previous transactions' spent pointers
-    map<uint256, CTransaction>& mapTransactions = WalletServ::getInstance()->mapTransactions;
+    map<uint256, CTransaction>& mapTransactions = WalletServ::getInstance()->getMapTransactions();
     {
         int64 nValueIn = 0;
         for (int i = 0; i < m_vTxIn.size(); i++)

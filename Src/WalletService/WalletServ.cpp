@@ -78,12 +78,12 @@ void WalletServ::initiation()
     printf("Done loading\n");
 
     //// debug print
-    printf("mapKeys.size() = %d\n",         mapKeys.size());
-    printf("mapPubKeys.size() = %d\n",      mapPubKeys.size());
-    printf("mapWallet.size() = %d\n",       mapWallet.size());
-    printf("mapAddressBook.size() = %d\n",  mapAddressBook.size());
-    map<string, string>::iterator it = mapAddressBook.begin();
-    for (;it != mapAddressBook.end(); ++it) {
+    printf("mapKeys.size() = %d\n",         m_mapKeys.size());
+    printf("mapPubKeys.size() = %d\n",      m_mapPubKeys.size());
+    printf("mapWallet.size() = %d\n",       m_mapWallet.size());
+    printf("mapAddressBook.size() = %d\n",  m_mapAddressBook.size());
+    map<string, string>::iterator it = m_mapAddressBook.begin();
+    for (;it != m_mapAddressBook.end(); ++it) {
         printf("mapAddressBook, key[%s]--value[%s]\n", it->first.c_str(), it->second.c_str());
 
     }
@@ -98,8 +98,8 @@ void WalletServ::initiation()
 
 WalletServ::WalletServ()
 {
-    nTransactionsUpdated = 0; // 每次对mapTransactions中交易进行更新，都对该字段进行++操作
-    nTransactionFee = 0; // 交易费用
+    m_nTransactionsUpdated = 0; // 每次对mapTransactions中交易进行更新，都对该字段进行++操作
+    m_nTransactionFee = 0; // 交易费用
 
 }
 
@@ -114,24 +114,24 @@ bool WalletServ::LoadWallet()
     if (!DaoServ::getInstance()->LoadWallet(vchDefaultKey))
         return false;
     printf("%s---%d---\n", __FILE__, __LINE__);
-    if (mapKeys.count(vchDefaultKey))
+    if (m_mapKeys.count(vchDefaultKey))
     {
         printf("%s---%d---add key at mem\n", __FILE__, __LINE__);
         // Set keyUser
-        keyUser.SetPubKey(vchDefaultKey);
-        keyUser.SetPrivKey(mapKeys[vchDefaultKey]);
+        m_keyUser.SetPubKey(vchDefaultKey);
+        m_keyUser.SetPrivKey(m_mapKeys[vchDefaultKey]);
     }
     else
     {
         printf("%s---%d---add key at db\n", __FILE__, __LINE__);
         // Create new keyUser and set as default key
         RandAddSeed(true);
-        keyUser.MakeNewKey();
-        if (!AddKey(keyUser))
+        m_keyUser.MakeNewKey();
+        if (!AddKey(m_keyUser))
             return false;
-        if (!DaoServ::getInstance()->SetAddressBookName(PubKeyToAddress(keyUser.GetPubKey()), "Enze"))
+        if (!DaoServ::getInstance()->SetAddressBookName(PubKeyToAddress(m_keyUser.GetPubKey()), "Enze"))
             return false;
-        DaoServ::getInstance()->WriteDefaultKey(keyUser.GetPubKey());
+        DaoServ::getInstance()->WriteDefaultKey(m_keyUser.GetPubKey());
     }
     printf("%s---%d---\n", __FILE__, __LINE__);
     return true;
@@ -146,8 +146,8 @@ bool WalletServ::AddKey(const CKey& key)
 {
      printf("%s---%d--%s\n", __FILE__, __LINE__, __func__);
     {
-        mapKeys[key.GetPubKey()] = key.GetPrivKey();
-        mapPubKeys[Hash160(key.GetPubKey())] = key.GetPubKey();
+        m_mapKeys[key.GetPubKey()] = key.GetPrivKey();
+        m_mapPubKeys[Hash160(key.GetPubKey())] = key.GetPubKey();
     }
      printf("%s---%d--%s\n", __FILE__, __LINE__, __func__);
 
@@ -177,7 +177,7 @@ bool WalletServ::AddToWallet(const CWalletTx& wtxIn)
  //   CRITICAL_BLOCK(cs_mapWallet)
     {
         // Inserts only if not already there, returns tx inserted or tx found
-        pair<map<uint256, CWalletTx>::iterator, bool> ret = mapWallet.insert(make_pair(hash, wtxIn));
+        pair<map<uint256, CWalletTx>::iterator, bool> ret = m_mapWallet.insert(make_pair(hash, wtxIn));
         CWalletTx& wtx = (*ret.first).second;
         bool fInsertedNew = ret.second; // 判断是否是新插入的（也即是原来对应mapWallet中没有）
         if (fInsertedNew)
@@ -221,7 +221,7 @@ bool WalletServ::AddToWallet(const CWalletTx& wtxIn)
             return false;
 
         // Notify UI
-        vWalletUpdated.push_back(make_pair(hash, fInsertedNew));
+        m_vWalletUpdated.push_back(make_pair(hash, fInsertedNew));
     }
 
     // Refresh UI
@@ -232,7 +232,7 @@ bool WalletServ::AddToWallet(const CWalletTx& wtxIn)
 // 如果当前交易属于本节点，则将当前交易加入到钱包中
 bool WalletServ::AddToWalletIfMine(const CTransaction& tx, const CBlock* pblock)
 {
-    if (tx.IsMine() || mapWallet.count(tx.GetHash()))
+    if (tx.IsMine() || m_mapWallet.count(tx.GetHash()))
     {
         CWalletTx wtx(tx);
         // Get merkle branch if transaction was found in a block
@@ -246,11 +246,8 @@ bool WalletServ::AddToWalletIfMine(const CTransaction& tx, const CBlock* pblock)
 // 将交易从钱包映射对象mapWallet中移除，同时将交易从CWalletDB中移除
 bool WalletServ::EraseFromWallet(uint256 hash)
 {
- //   CRITICAL_BLOCK(cs_mapWallet)
-    {
-        if (mapWallet.erase(hash))
-            DaoServ::getInstance()->EraseTx(hash);
-    }
+    if (m_mapWallet.erase(hash))
+        DaoServ::getInstance()->EraseTx(hash);
     return true;
 }
 //////////////////////////////////////////////////////////////////////////////
@@ -264,46 +261,43 @@ void WalletServ::AddOrphanTx(const Transaction& pbTx)
     UnSeriaTransaction(pbTx, *tx);
 
     uint256 hash = tx->GetHash();
-    if (mapOrphanTransactions.count(hash))
+    if (m_mapOrphanTransactions.count(hash))
         return;
-   mapOrphanTransactions[hash] = tx;
+    m_mapOrphanTransactions[hash] = tx;
     // 当前交易对应的输入对应的交易hash
     foreach(const CTxIn& txin, tx->m_vTxIn)
-        mapOrphanTransactionsByPrev.insert(make_pair(txin.m_cPrevOut.m_u256Hash, tx));
+        m_mapOrphanTransactionsByPrev.insert(make_pair(txin.m_cPrevOut.m_u256Hash, tx));
 }
 // 删除对应的孤儿交易
 void WalletServ::EraseOrphanTx(uint256 hash)
 {
-    if (!mapOrphanTransactions.count(hash))
+    if (!m_mapOrphanTransactions.count(hash))
         return;
-    const CTransaction* tx = mapOrphanTransactions[hash];
+    const CTransaction* tx = m_mapOrphanTransactions[hash];
 
     foreach(const CTxIn& txin, tx->m_vTxIn)
     {
-        for (multimap<uint256, CTransaction*>::iterator mi = mapOrphanTransactionsByPrev.lower_bound(txin.m_cPrevOut.m_u256Hash);
-             mi != mapOrphanTransactionsByPrev.upper_bound(txin.m_cPrevOut.m_u256Hash);)
+        for (multimap<uint256, CTransaction*>::iterator mi = m_mapOrphanTransactionsByPrev.lower_bound(txin.m_cPrevOut.m_u256Hash);
+             mi != m_mapOrphanTransactionsByPrev.upper_bound(txin.m_cPrevOut.m_u256Hash);)
         {
             if ((*mi).second == tx)
-                mapOrphanTransactionsByPrev.erase(mi++);
+                m_mapOrphanTransactionsByPrev.erase(mi++);
             else
                 mi++;
         }
     }
     delete tx;
-    mapOrphanTransactions.erase(hash);
+    m_mapOrphanTransactions.erase(hash);
 }
 
 
 void WalletServ::ReacceptWalletTransactions()
 {
-    // Reaccept any txes of ours that aren't already in a block
+    foreach(PAIRTYPE(const uint256, CWalletTx)& item, m_mapWallet)
     {
-        foreach(PAIRTYPE(const uint256, CWalletTx)& item, mapWallet)
-        {
-            CWalletTx& wtx = item.second;
-            if (!wtx.IsCoinBase() && !DaoServ::getInstance()->ContainsTx(wtx.GetHash()))
-                wtx.AcceptWalletTransaction(false);
-        }
+        CWalletTx& wtx = item.second;
+        if (!wtx.IsCoinBase() && !DaoServ::getInstance()->ContainsTx(wtx.GetHash()))
+            wtx.AcceptWalletTransaction(false);
     }
 }
 
@@ -322,7 +316,7 @@ void WalletServ::RelayWalletTransactions()
 		// 按照时间（被当前节点接收的时间）顺序对钱包中的交易进行排序
         // Sort them in chronological order
         multimap<unsigned int, CWalletTx*> mapSorted;// 默认是按照unsigned int对应的值升序排列，即是越早时间越靠前
-        foreach(PAIRTYPE(const uint256, CWalletTx)& item, mapWallet)
+        foreach(PAIRTYPE(const uint256, CWalletTx)& item, m_mapWallet)
         {
             CWalletTx& wtx = item.second;
             mapSorted.insert(make_pair(wtx.m_uTimeReceived, &wtx));
@@ -344,7 +338,7 @@ bool WalletServ::AlreadyHave(const CInv& inv)
 {
     switch (inv.type)
     {
-        case MSG_TX:        return mapTransactions.count(inv.hash) || DaoServ::getInstance()->ContainsTx(inv.hash);
+        case MSG_TX:        return m_mapTransactions.count(inv.hash) || DaoServ::getInstance()->ContainsTx(inv.hash);
     case MSG_BLOCK:     return BlockEngine::getInstance()->getMapBlockIndex().count(inv.hash) || BlockEngine::getInstance()->mapOrphanBlocks.count(inv.hash);
     case MSG_REVIEW:    return true;
     case MSG_PRODUCT:   return mapProducts.count(inv.hash);
@@ -362,21 +356,15 @@ bool WalletServ::AlreadyHave(const CInv& inv)
 int64 WalletServ::GetBalance()
 {
     int64 nStart, nEnd;
-  //  QueryPerformanceCounter((LARGE_INTEGER*)&nStart);
 
     int64 nTotal = COIN*100;
-    //CRITICAL_BLOCK(cs_mapWallet)
+    for (map<uint256, CWalletTx>::iterator it = m_mapWallet.begin(); it != m_mapWallet.end(); ++it)
     {
-        for (map<uint256, CWalletTx>::iterator it = mapWallet.begin(); it != mapWallet.end(); ++it)
-        {
-            CWalletTx* pcoin = &(*it).second;
-            if (!pcoin->IsFinal() || pcoin->m_bSpent)
-                continue;
-            nTotal += pcoin->GetCredit();
-        }
+        CWalletTx* pcoin = &(*it).second;
+        if (!pcoin->IsFinal() || pcoin->m_bSpent)
+            continue;
+        nTotal += pcoin->GetCredit();
     }
-
-//    QueryPerformanceCounter((LARGE_INTEGER*)&nEnd);
     printf(" GetBalance() nTotal = %lld\n", nTotal);
     return nTotal;
 }
@@ -391,36 +379,33 @@ bool WalletServ::SelectCoins(int64 nTargetValue, set<CWalletTx*>& setCoinsRet)
     CWalletTx* pcoinLowestLarger = NULL;
     vector<pair<int64, CWalletTx*> > vValue;
     int64 nTotalLower = 0;
-    mapWallet.count(18);
-    printf("SelectCoins() WalletSize[%d]\n", mapWallet.size());
+    m_mapWallet.count(18);
+    printf("SelectCoins() WalletSize[%d]\n", m_mapWallet.size());
     printf("nTragetValue[%lld]\n", nTargetValue);
-    //CRITICAL_BLOCK(cs_mapWallet)
+    for (map<uint256, CWalletTx>::iterator it = m_mapWallet.begin(); it != m_mapWallet.end(); ++it)
     {
-        for (map<uint256, CWalletTx>::iterator it = mapWallet.begin(); it != mapWallet.end(); ++it)
+        CWalletTx* pcoin = &(*it).second;
+        if (!pcoin->IsFinal() || pcoin->m_bSpent)
+            continue;
+        int64 n = pcoin->GetCredit();
+        printf("SelectCoins---coin Value[%lld], nLowestLarger[%lld]\n", n, nLowestLarger);
+        if (n <= 0)
+            continue;
+        if (n < nTargetValue)
         {
-            CWalletTx* pcoin = &(*it).second;
-            if (!pcoin->IsFinal() || pcoin->m_bSpent)
-                continue;
-            int64 n = pcoin->GetCredit();
-            printf("SelectCoins---coin Value[%lld], nLowestLarger[%lld]\n", n, nLowestLarger);
-            if (n <= 0)
-                continue;
-            if (n < nTargetValue)
-            {
-                vValue.push_back(make_pair(n, pcoin));
-                nTotalLower += n;
-            }
-            else if (n == nTargetValue)
-            {
-                setCoinsRet.insert(pcoin);
-                return true;
-            }
-            else if (n < nLowestLarger)
-            {
-                printf("SelectCoins---Find coin Value[%lld]\n", n);
-                nLowestLarger = n;
-                pcoinLowestLarger = pcoin;
-            }
+            vValue.push_back(make_pair(n, pcoin));
+            nTotalLower += n;
+        }
+        else if (n == nTargetValue)
+        {
+            setCoinsRet.insert(pcoin);
+            return true;
+        }
+        else if (n < nLowestLarger)
+        {
+            printf("SelectCoins---Find coin Value[%lld]\n", n);
+            nLowestLarger = n;
+            pcoinLowestLarger = pcoin;
         }
     }
     printf("SelectCoins() nTotalLower:[%lld] \n", nTotalLower);
@@ -494,7 +479,7 @@ bool WalletServ::CreateTransaction(CScript scriptPubKey, int64 nValue, CWalletTx
     {
         // txdb must be opened before the mapWallet lock
         {
-            int64 nFee = nTransactionFee;
+            int64 nFee = m_nTransactionFee;
             loop
             {
                 wtxNew.m_vTxIn.clear();
@@ -585,12 +570,12 @@ bool WalletServ::CommitTransactionSpent(const CWalletTx& wtxNew)
     // Mark old coins as spent
     set<CWalletTx*> setCoins;
     foreach(const CTxIn& txin, wtxNew.m_vTxIn)
-        setCoins.insert(&mapWallet[txin.m_cPrevOut.m_u256Hash]);
+        setCoins.insert(&m_mapWallet[txin.m_cPrevOut.m_u256Hash]);
     foreach(CWalletTx* pcoin, setCoins)
     {
         pcoin->m_bSpent = true;
         pcoin->WriteToDisk();
-        vWalletUpdated.push_back(make_pair(pcoin->GetHash(), false));
+        m_vWalletUpdated.push_back(make_pair(pcoin->GetHash(), false));
     }
     return true;
 }
@@ -632,5 +617,14 @@ bool WalletServ::SendMoney(CScript scriptPubKey, int64 nValue, CWalletTx& wtxNew
     return true;
 }
 
+map<uint256, CTransaction>& WalletServ::getMapTransactions()
+{
+    return m_mapTransactions;
+}
+
+map<COutPoint, CInPoint>& WalletServ::getMapNextTx()
+{
+    return m_mapNextTx;
+}
 /* EOF */
 

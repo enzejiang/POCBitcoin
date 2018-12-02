@@ -719,16 +719,15 @@ bool BlockEngine::BitcoinMiner()
     CBigNum bnExtraNonce = 0;
     while (fGenerateBitcoins)
     {
-        sleep(50*4);
-#if 0
-        CheckForShutdown(3);
-        while (m_PeerNodeList.empty())
+        sleep(10*3);
+
+        while (!NetWorkServ::getInstance()->AlreadyHaveNode())
         {
+            printf("**************************\nBitcoinMiner ---Do not Have Node\n*************************\n");
             sleep(30);
-            CheckForShutdown(3);
         }
-#endif
-        unsigned int nTransactionsUpdatedLast = WalletServ::getInstance()->nTransactionsUpdated;
+
+        unsigned int nTransactionsUpdatedLast = WalletServ::getInstance()->getTransactionsUpdatedTime();
         CBlockIndex* pindexPrev = pindexBest;
         if (NULL == pindexPrev) {
             printf("**************************\nBitcoinMiner---pindexPrev == NULL\n*************************\n");
@@ -764,7 +763,7 @@ bool BlockEngine::BitcoinMiner()
         int64 nFees = 0;
         //CRITICAL_BLOCK(cs_main)
         //CRITICAL_BLOCK(cs_mapTransactions)
-        map<uint256, CTransaction>& mapTransactions = WalletServ::getInstance()->mapTransactions;
+        map<uint256, CTransaction>& mapTransactions = WalletServ::getInstance()->getMapTransactions();
         {
             map<uint256, CTxIndex> mapTestPool;
             vector<char> vfAlreadyAdded(mapTransactions.size());
@@ -886,7 +885,7 @@ bool BlockEngine::BitcoinMiner()
                     break;
                 if (pindexPrev != pindexBest)
                     break;
-                if (WalletServ::getInstance()->nTransactionsUpdated != nTransactionsUpdatedLast && GetTime() - nStart > 60)
+                if (WalletServ::getInstance()->getTransactionsUpdatedTime() != nTransactionsUpdatedLast && GetTime() - nStart > 60)
                     break;
                 if (!fGenerateBitcoins)
                     break;

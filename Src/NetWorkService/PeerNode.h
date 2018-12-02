@@ -29,11 +29,11 @@ namespace Enze {
 class CBlockLocator;
 class CTransaction;
 class CBlock;
-
+class NetWorkServ;
 class PeerNode 
 {
 public:
-    PeerNode(const CAddress& addrIn, int socketFd, bool fInboundIn=false);
+    PeerNode(NetWorkServ* pNWKServ, const CAddress& addrIn, int socketFd, bool fInboundIn=false);
     ~PeerNode();
       
     void Disconnect();
@@ -162,7 +162,8 @@ private:
     void ProcessHashReplyMsg(const string& strReply);
     void ProcessGetAddrMsg(); 
     PB_MessageData* popRecvMsg();
-    
+    void PushMessage(int cmdType, const CTransaction& tx);
+
 private:
         bool m_bInbound = false;
         bool m_bNetworkNode = false; // 设置对应的节点为网络节点，是因为从对应的本地节点列表中没有查询到
@@ -191,6 +192,7 @@ private:
         set<CInv> m_setInventoryKnown2;
         vector<CInv> m_vInventoryToSend; //库存准备发送的集合，对库存准备发送的集合根据已知库存的集合进行过滤之后在发送
         multimap<int64, CInv> m_mapAskFor; // 咨询请求映射，key为时间（单位到微秒）
+        NetWorkServ* m_pNetWorkServ;
 private:
         PeerNode(const PeerNode&)= delete;
         PeerNode() = delete;
